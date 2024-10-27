@@ -1,0 +1,13 @@
+.idea
+*.iml
+out
+gen
+.idea/
+*.iml
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.log
+*.tmp
+*.npy
