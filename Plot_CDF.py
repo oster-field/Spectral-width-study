@@ -4,7 +4,7 @@ import numpy as np
 from functions import formula
 
 spectrum_name = 'My spectrum'  # Input spectrum name
-filename = 'R2000 MW400 NH8192 MP10 P4'  # Input filename
+filename = 'R2000 MW500 NH16384 MP0 P6'  # Input filename
 
 loaded_data = np.load(f'{spectrum_name}/{filename}.npy', allow_pickle=True)
 x = loaded_data.item().get('x')
