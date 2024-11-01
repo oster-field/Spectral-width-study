@@ -7,11 +7,13 @@ from concurrent.futures import ProcessPoolExecutor
 import os
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from scipy.integrate import quad
+from scipy.optimize import minimize
 
 
 class WaveFieldSimulation:
-    def __init__(self, num_realizations=200, max_w=900, num_harmonics=2 ** 13,
-                 spectrum_w0=17.5, power_spectrum=6, a=1, b=5, kc=1e5, k=1e-5,
+    def __init__(self, num_realizations=10, max_w=100, num_harmonics=2 ** 13,
+                 spectrum_w0=0, power_spectrum=6, a=1, b=1, kc=1e5, k=1e-5,
                  ampl_or_extr='amplitude', name_of_spectrum='Parabolic', showcase=True, save_file=True):
         # Initialize parameters
         self.num_realizations = num_realizations  # Number of realizations
@@ -30,28 +32,23 @@ class WaveFieldSimulation:
 
     def spectrum(self, w):
         if self.name_of_spectrum == 'My spectrum':
-            return 1 / (1 + (w - self.spectrum_w0) ** self.power_spectrum)
+            return my_spectrum(w, self.spectrum_w0, self.power_spectrum)
         elif self.name_of_spectrum == 'Gaussian':
-            return self.a * np.exp(-self.b * (w - self.spectrum_w0) ** 2)
+            return gaussian_spectrum(w, self.spectrum_w0, self.a, self.b)
         elif self.name_of_spectrum == 'Parabolic':
-            q = ((self.k * self.kc) / (self.k + 2 * np.sqrt(self.k * self.kc) + self.kc)) ** (1 / 3)
-            w0 = np.sqrt(q / self.kc) + self.spectrum_w0
-            if w0 - np.sqrt(q / self.kc) <= w <= w0:
-                return -self.kc * (w - w0) ** 2 + q
-            elif w0 < w <= w0 + np.sqrt(q / self.k):
-                return -self.k * (w - w0) ** 2 + q
-            else:
-                return 0
+            return parabolic_spectrum(w, self.spectrum_w0, self.kc, self.k)
 
     def run_wave_field(self, i):
         t, y, sx, sy, dw, dt = wave_field(self.max_w, self.num_harmonics, self.spectrum)
+        max_array = zero_crossing(t, y, self.ampl_or_extr)
+        significant_ampl = 2 * np.sqrt(np.trapz(sy, dx=dw))
         if i == 0 and self.showcase:
             plt.plot(sx, sy, color='red', linewidth=2, marker='.')
             plt.show()
             plt.plot(t, y, color='b', alpha=0.9, marker='.')
+            plt.title(f'{len(max_array)} array length')
+            plt.axhline(0, color='black', linewidth=1.2)
             plt.show()
-        max_array = zero_crossing(t, y, self.ampl_or_extr)
-        significant_ampl = 2 * np.sqrt(np.trapz(sy, dx=dw))
         return max_array / significant_ampl
 
     def run_simulation(self):
@@ -80,13 +77,32 @@ class WaveFieldSimulation:
         return save
 
 
+def my_spectrum(w, spectrum_w0, power_spectrum):
+    return 1 / (1 + (w - spectrum_w0) ** power_spectrum)
+
+
+def gaussian_spectrum(w, spectrum_w0, a, b):
+    return a * np.exp(-b * (w - spectrum_w0) ** 2)
+
+
+def parabolic_spectrum(w, spectrum_w0, kc, k):
+    q = ((k * kc) / (k + 2 * np.sqrt(k * kc) + kc)) ** (1 / 3)
+    w0 = np.sqrt(q / kc) + spectrum_w0
+    if w0 - np.sqrt(q / kc) <= w <= w0:
+        return -kc * (w - w0) ** 2 + q
+    elif w0 < w <= w0 + np.sqrt(q / k):
+        return -k * (w - w0) ** 2 + q
+    else:
+        return 0
+
+
 def wave_field(last_w, summ_num, spectrum, **kwargs):  # Making a wave field
     dt = 2 * np.pi / last_w  # Time step
     dw = last_w / summ_num  # Frequency step
     len_rec = dt * summ_num  # Total length of realization
     w = 0
     t = np.arange(0, len_rec, dt)
-    eta, s_eta, s_w = 0, np.arange(0), np.arange(0)
+    eta, s_eta, s_w = np.zeros(summ_num), np.arange(0), np.arange(0)
     for _ in range(0, summ_num):
         w += dw
         v = random.uniform(0, 2 * np.pi)  # Random phase (uniformly distributed)
@@ -110,19 +126,19 @@ def zero_crossing(t, y, amplitude_extrema):  # Positive amplitudes or local extr
     for j in y:
         if j == 0:
             q = np.append(q, 0)
-            if np.sum(q) > 0:
-                if amplitude_extrema == 'amplitude':
-                    array = np.append(array, np.max(q))
-                elif amplitude_extrema == 'extrema' or amplitude_extrema == 'non-global':
-                    dq_1 = np.diff(q)
-                    dq_2 = np.diff(q, n=2)
-                    for i in range(1, len(dq_2)):
-                        if dq_1[i - 1] > 0 >= dq_1[i] and dq_2[i - 1] < 0 < q[i]:
-                            if amplitude_extrema == 'extrema':
+            q = np.abs(q)
+            if amplitude_extrema == 'amplitude':
+                array = np.append(array, np.max(q))
+            elif amplitude_extrema == 'extrema' or amplitude_extrema == 'non-global':
+                dq_1 = np.diff(q)
+                dq_2 = np.diff(q, n=2)
+                for i in range(1, len(dq_2)):
+                    if dq_1[i - 1] > 0 >= dq_1[i] and dq_2[i - 1] < 0 < q[i]:
+                        if amplitude_extrema == 'extrema':
+                            array = np.append(array, q[i])
+                        elif amplitude_extrema == 'non-global':
+                            if q[i] != np.max(q):
                                 array = np.append(array, q[i])
-                            elif amplitude_extrema == 'non-global':
-                                if q[i] != np.max(q):
-                                    array = np.append(array, q[i])
             q = np.arange(0)
         q = np.append(q, j)
     return array
@@ -137,6 +153,17 @@ def spectral_width(spectrum):  # Spectral width parameter proposed by L.Higgins
     return np.sqrt(1 - (m2 ** 2) / (m0 * m4))
 
 
+def formula_higgins(a, epsilon):  # CDF for all local maxima (L. Higgins)
+    term1 = 1 + np.exp(-2 * a ** 2) * np.sqrt(1 - epsilon ** 2)
+    term2 = -erf((a * np.sqrt(2)) / epsilon)
+    term3 = np.exp(-2 * a ** 2) * np.sqrt(1 - epsilon ** 2) * erf(
+        (a * np.sqrt(2) * np.sqrt(1 - epsilon ** 2)) / epsilon)
+    denominator = 1 + np.sqrt(1 - epsilon ** 2)
+
+    result = (term1 + term2 + term3) / denominator
+    return result
+
+
 def formula(a, p):  # My formula for CDF of amplitudes
     term1 = ((np.sqrt(2) * (1 + p ** 4)) / p) * a  # Not sure about this term
     term2 = np.exp(-2 * a ** 2)
@@ -148,5 +175,24 @@ def f1(x, p):
     return (np.exp(-2 * x**2) / 2) * (1 + erf((x * np.sqrt(2 - 2 * p**2))/p))
 
 
-def additional_function(x, psi):
-    return 0.5 * (1 - erf(x * psi))
+def additional_function(x, psi, alpha):
+    return 0.5 * (1 - erf((x * psi) ** alpha))
+
+
+def target(params, spectrum_func, width):
+    def spectrum_wrapper(w):
+        return spectrum_func(w, *params)
+
+    m0_val, _ = quad(spectrum_wrapper, 0, np.inf)
+    m2_val, _ = quad(lambda x: x ** 2 * spectrum_wrapper(x), 0, np.inf)
+    m4_val, _ = quad(lambda x: x ** 4 * spectrum_wrapper(x), 0, np.inf)
+    if m0_val == 0 or m4_val == 0:
+        return np.inf
+    ratio = np.sqrt(1 - m2_val ** 2 / (m0_val * m4_val))
+    return (ratio - width) ** 2
+
+
+def optimize_spectrum(spectrum_func, initial_guess, bounds, width):
+    result = minimize(target, initial_guess, args=(spectrum_func, width), bounds=bounds)
+    return result.x
+

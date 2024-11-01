@@ -1,28 +1,17 @@
-from main import WaveFieldSimulation, f1, my_spectrum, gaussian_spectrum, parabolic_spectrum, optimize_spectrum
+from main import WaveFieldSimulation, formula_higgins, my_spectrum, gaussian_spectrum, parabolic_spectrum, optimize_spectrum
 import numpy as np
 import matplotlib.pyplot as plt
-import os
 
 
 if __name__ == '__main__':
     """This is a block of parameters."""
-    spectrum_name = 'Gaussian'  # Gaussian, parabolic or my spectrum
+    spectrum_name = 'Parabolic'  # Gaussian, parabolic or my spectrum
     widths = np.array([0.2, 0.4, 0.7])  # Which widths we want to see in a picture
-    num_realizations_array = np.array([1000, 1100, 2000])  # This array is crucial for CDF quality
-    max_w_array = np.array([250, 234, 250])  # Optimal values for: (obtained from CDF creation.npy)
-    # Gaussian: 100 | 60 | 40
-    # Parabolic: 50 | 25 | 12.5
-    # My spectrum: 200 | 90 | 40
-    num_harmonics_array = np.array([20000, 20000, 30000])  # Optimal values for:
-    # Parabolic: 8000
-    # Gaussian: 9000
-    # My spectrum: 10000
+    num_realizations_array = np.array([2, 2, 2])  # This array is crucial for wave field and CDF quality
+    max_w_array = np.array([200, 175, 150])  # This array is crucial for wave field and CDF quality
+    num_harmonics_array = np.array([2 ** 13, 2 ** 13, 2 ** 13])  # This array is crucial for wave field and CDF quality
     """End of parameter block."""
-    colors = ["red", "green", "blue"]
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    if not os.path.isdir('Pic 15'):
-        os.mkdir('Pic 15')
+    fig, ax = plt.subplots(1, len(widths))
     w0_opt, b_opt, k_opt = 0, 0, 0
     for i in range(len(widths)):
         if spectrum_name == 'My spectrum':
@@ -45,6 +34,7 @@ if __name__ == '__main__':
             b=b_opt,
             k=k_opt,
             name_of_spectrum=spectrum_name,
+            ampl_or_extr='extrema',
             showcase=False,
             save_file=False
         )
@@ -52,20 +42,19 @@ if __name__ == '__main__':
         a = data.get('x')
         y = data.get('y')
         p = data.get('width')
-        ax.plot(a, y, linewidth=3, color=colors[i], label=f'$F_{{a}}, ϵ = {widths[i]}$')
-        f = f1(a, p)
-        ax.plot(a, f, linestyle='dotted', linewidth=2, color=colors[i], label=f'$F_{{1}}, ϵ = {widths[i]}$')
-        ax.plot(a, y - f, linestyle='dashed', linewidth=2, color=colors[i], label=f'$F_{{a}}-F_{{1}}, ϵ = {widths[i]}$')
-        save = {'x': a, 'y': y - f, 'width': p}
-        np.save(f'Pic 15/F_A-F1 eps{widths[i]}.npy', save)
-    ax.set_xlabel('Normalized value of individual wave amplitude', fontsize=20)
-    ax.set_ylabel(f'CDF', fontsize=20)
-    ax.tick_params(labelsize=20)
-    ax.set(ylim=[0, 1])
-    ax.set(xlim=[0, 2])
-    ax.grid()
-    ax.legend(fontsize=15)
+        ax[i].plot(a, y, linewidth=3, color='r', label='$F$')
+        ax[i].plot(a, np.exp(-2 * a ** 2), linewidth=2, color='black', label='$F_{R}$')
+        ax[i].plot(a, formula_higgins(a, p), linewidth=2, color='black', linestyle='dashed',
+                   label='$F_{M}$')
+        ax[i].tick_params(labelsize=20)
+        ax[i].set(ylim=[0, 1])
+        ax[i].set(xlim=[0, 1.75])
+        ax[i].grid()
+        ax[i].legend(title=f'ϵ = {widths[i]}', fontsize=15, title_fontproperties={'size': 16, 'weight': 'semibold'})
+    ax[1].set_xlabel('Normalized value of local maxima', fontsize=20)
+    ax[0].set_ylabel(f'CDF', fontsize=20)
     fig_manager = plt.get_current_fig_manager()
     fig_manager.window.state('zoomed')
     plt.subplots_adjust(left=0.057, bottom=0.274, right=0.78, top=0.977, wspace=0.2, hspace=0.2)
     plt.show()
+
