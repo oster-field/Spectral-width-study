@@ -13,7 +13,7 @@ def objective(params, m, n):
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
-colors = ["red", "green", "blue"]
+colors = ["red", "green", "blue", "black", "purple"]
 i = 0
 for i, filename in enumerate(os.listdir('Pic 15')):
     file_path = os.path.join('Pic 15', filename)
@@ -23,7 +23,7 @@ for i, filename in enumerate(os.listdir('Pic 15')):
     p = loaded_data.item().get('width')
     ax.plot(x, y, linestyle='dashed', linewidth=3, color=colors[i], label=f'$F_{{a}}-F_{{1}}, ϵ = {np.round(p, 2)}$')
     initial_guess = [1, 1]
-    result = minimize(objective, initial_guess, args=(x, y), bounds=[(0, None), (1e-6, 1)])
+    result = minimize(objective, initial_guess, args=(x, y), bounds=[(0, None), (0, None)])
     psi_opt, alpha_opt = result.x
     ax.plot(x, additional_function(x, psi_opt, alpha_opt), linewidth=4, color=colors[i],
             alpha=0.45, label=f'$γ, ψ = {np.round(psi_opt, 2)}, a = {np.round(alpha_opt, 2)}$', linestyle='solid')

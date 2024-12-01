@@ -7,17 +7,17 @@ import numpy as np
 
 if __name__ == '__main__':
     """This is a block of parameters."""
-    spectrum_name = 'Gaussian'
-    width = 0.7  # Desired spectrum width
+    spectrum_name = 'My spectrum'
+    width = 1  # Desired spectrum width
     # Here it is important to find a balance between these two parameters: so that the spectrum is optimally written
     # and the individual wave contains the required number of points
-    num_harmonics = 30000  # Number of harmonics in summation
-    max_w = 250  # Last frequency in the discrete Fourier spectrum
+    num_harmonics = 10000  # Number of harmonics in summation
+    max_w = 70  # Last frequency in the discrete Fourier spectrum
 
-    num_realizations = 1  # Set 1 if CDF is not important
+    num_realizations = 1000  # Set 1 if CDF is not important
     """End of parameter block."""
     w0_opt, b_opt, k_opt = 0, 0, 0
-    if spectrum_name == 'My spectrum':
+    '''if spectrum_name == 'My spectrum':
         initial_guess = [1, 6]
         bounds = [(0, None), (6, 6)]
         w0_opt, _ = optimize_spectrum(my_spectrum, initial_guess, bounds, width)
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     elif spectrum_name == 'Parabolic':
         initial_guess = [0, 1e5, 1]
         bounds = [(0, None), (1e5, 1e5), (1e-6, None)]
-        w0_opt, _, k_opt = optimize_spectrum(parabolic_spectrum, initial_guess, bounds, width)
+        w0_opt, _, k_opt = optimize_spectrum(parabolic_spectrum, initial_guess, bounds, width)'''
     simulation = WaveFieldSimulation(
         num_realizations=num_realizations,
         max_w=max_w,
@@ -36,10 +36,11 @@ if __name__ == '__main__':
         spectrum_w0=w0_opt,
         b=b_opt,
         k=k_opt,
+        power_spectrum=5.01,
         ampl_or_extr='amplitude',
         name_of_spectrum=spectrum_name,
         showcase=True,
-        save_file=False
+        save_file=True
     )
     data = simulation.run_simulation()
     x = data.get('x')

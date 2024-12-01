@@ -14,7 +14,7 @@ from scipy.optimize import minimize
 class WaveFieldSimulation:
     def __init__(self, num_realizations=10, max_w=100, num_harmonics=2 ** 13,
                  spectrum_w0=0, power_spectrum=6, a=1, b=1, kc=1e5, k=1e-5,
-                 ampl_or_extr='amplitude', name_of_spectrum='Parabolic', showcase=True, save_file=True):
+                 ampl_or_extr='amplitude', name_of_spectrum='Parabolic', showcase=True, save_file=True, progress=True):
         # Initialize parameters
         self.num_realizations = num_realizations  # Number of realizations
         self.max_w = max_w  # The last frequency in spectrum
@@ -29,6 +29,7 @@ class WaveFieldSimulation:
         self.name_of_spectrum = name_of_spectrum  # Name of spectrum
         self.showcase = showcase  # Show spectrum and one realization or not
         self.save_file = save_file  # Save file or not
+        self.progress = progress  # Is progressbar needed
 
     def spectrum(self, w):
         if self.name_of_spectrum == 'My spectrum':
@@ -54,8 +55,11 @@ class WaveFieldSimulation:
     def run_simulation(self):
         CDF_points = np.array([])
         with ProcessPoolExecutor() as executor:
-            results = list(tqdm(executor.map(self.run_wave_field, range(self.num_realizations)),
-                                total=self.num_realizations, colour='green'))
+            if self.progress:
+                results = list(tqdm(executor.map(self.run_wave_field, range(self.num_realizations)),
+                                    total=self.num_realizations, colour='green'))
+            else:
+                results = executor.map(self.run_wave_field, range(self.num_realizations))
         for result in results:
             CDF_points = np.append(CDF_points, result)
         CDF_y = np.linspace(1, 0, len(CDF_points), endpoint=False)
@@ -144,22 +148,12 @@ def zero_crossing(t, y, amplitude_extrema):  # Positive amplitudes or local extr
     return array
 
 
-def spectral_width(spectrum):  # Spectral width parameter proposed by L.Higgins
-    w = np.arange(0, 1000, 0.0001)
-    s = spectrum(w)
-    m0 = np.trapz(s, dx=0.0001)
-    m2 = np.trapz((w ** 2) * s, dx=0.0001)
-    m4 = np.trapz((w ** 4) * s, dx=0.0001)
-    return np.sqrt(1 - (m2 ** 2) / (m0 * m4))
-
-
 def formula_higgins(a, epsilon):  # CDF for all local maxima (L. Higgins)
     term1 = 1 + np.exp(-2 * a ** 2) * np.sqrt(1 - epsilon ** 2)
     term2 = -erf((a * np.sqrt(2)) / epsilon)
     term3 = np.exp(-2 * a ** 2) * np.sqrt(1 - epsilon ** 2) * erf(
         (a * np.sqrt(2) * np.sqrt(1 - epsilon ** 2)) / epsilon)
     denominator = 1 + np.sqrt(1 - epsilon ** 2)
-
     result = (term1 + term2 + term3) / denominator
     return result
 
@@ -172,11 +166,11 @@ def formula(a, p):  # My formula for CDF of amplitudes
 
 
 def f1(x, p):
-    return (np.exp(-2 * x**2) / 2) * (1 + erf((x * np.sqrt(2 - 2 * p**2))/p))
+    return (np.exp(-2 * x ** 2) / 2) * (1 + erf((x * np.sqrt(2 - 2 * p ** 2)) / p))
 
 
 def additional_function(x, psi, alpha):
-    return 0.5 * (1 - erf((x * psi) ** alpha))
+    return 0.5 * (1 - erf((psi * x) ** alpha))
 
 
 def target(params, spectrum_func, width):
@@ -195,4 +189,3 @@ def target(params, spectrum_func, width):
 def optimize_spectrum(spectrum_func, initial_guess, bounds, width):
     result = minimize(target, initial_guess, args=(spectrum_func, width), bounds=bounds)
     return result.x
-
